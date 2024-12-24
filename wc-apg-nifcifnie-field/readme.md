@@ -9,11 +9,11 @@ Requires at least: 5.0
 
 Tested up to: 6.8
 
-Stable tag: 3.1.0.1
+Stable tag: 3.1.0.2
 
 WC requires at least: 5.6
 
-WC tested up to: 9.5.1
+WC tested up to: 9.6
 
 License: GPLv3
 
@@ -88,6 +88,9 @@ Si necesitas ayuda para configurar o instalar **WC - APG NIF/CIF/NIE Field**, **
 *En ningún caso **Art Project Group** proporciona ningún tipo de soporte técnico gratuito.*
 
 ## Changelog
+### 3.1.0.2
+* Arreglos menores.
+
 ### 3.1.0.1
 * Arreglos menores.
 

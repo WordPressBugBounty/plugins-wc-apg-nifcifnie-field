@@ -4,7 +4,7 @@ Donate link: https://artprojectgroup.es/tienda/donacion
 Tags: nif, cif, nie, eori, vies
 Requires at least: 5.0
 Tested up to: 6.9
-Stable tag: 4.0
+Stable tag: 4.0.0.1
 WC requires at least: 5.6
 WC tested up to: 9.9
 License: GNU General Public License v2 or later
@@ -133,10 +133,13 @@ If you need help to configuring or installing **WC - APG NIF/CIF/NIE field**, **
 3. Screenshot of WC - APG NIF/CIF/NIE field. Billing and shipping forms. Classic Shortcode.
 
 == Changelog ==
+= 4.0.0.1 =
+* Small fixes.
 = 4.0 =
 * Full compatibility added for VIES and EORI validation in the Checkout Block.
 * General performance improvements.
 * Full code compliance with WordPress security standards.
+* Addition of document validation for new countries.
 * Minor fixes.
 = 3.2.0.1 =
 * Small fixes.
@@ -315,11 +318,8 @@ If you need help to configuring or installing **WC - APG NIF/CIF/NIE field**, **
 * Initial version.
 
 == Upgrade Notice ==
-= 4.0 =
-* Full compatibility added for VIES and EORI validation in the Checkout Block.
-* General performance improvements.
-* Full code compliance with WordPress security standards.
-* Minor fixes.
+= 4.0.0.1 =
+* Small fixes.
 
 == Translations ==
 * *English*: by [**Art Project Group**](https://artprojectgroup.es/) (default language).
@@ -340,16 +340,19 @@ Did you liked and you have proved useful **WC - APG NIF/CIF/NIE field** on your 
 Thank you very much to all!
 
 == External Services ==
-1. This plugin connects to the WordPress.org Plugins API to fetch plugin information.  
- * It sends the plugin slug when requesting data.
- * More information: [https://wordpress.org/about/privacy/](https://wordpress.org/about/privacy/)
-2. This plugin connects to the VAT number validation API from VIES and the EORI number validation API.  
- * It sends the country and VAT number — VIES validation —.  
- * It sends the EORI number.  
- * More information: [https://commission.europa.eu/privacy-policy-websites-managed-european-commission_es](https://commission.europa.eu/privacy-policy-websites-managed-european-commission_es)
-3. This plugin connects to the EORI number validation API.  
- * It sends the EORI number.  
- * More information: [https://www.gov.uk/help/privacy-notice](https://www.gov.uk/help/privacy-notice)
-4. This plugin connects to the EORI number validation API.  
- * It sends the EORI number.  
- * More information: [https://vatapp.net/privacy-policy](https://vatapp.net/privacy-policy)
+1. To the WordPress.org Plugins API to fetch plugin information.  
+ - It sends the plugin slug when requesting data.
+ - More information: https://wordpress.org/about/privacy/
+
+2. To the European Commission VAT number validation API (VIES) and EORI number validation API.
+ - It sends the country and VAT number — VIES validation —.
+ - It sends the EORI number.
+ - More information: https://commission.europa.eu/privacy-policy-websites-managed-european-commission_es
+
+3. To the UK Government EORI number validation API.
+ - It sends the EORI number.
+ - More information: https://www.gov.uk/help/privacy-notice
+
+4. To the VatApp EORI number validation API.
+ - It sends the EORI number.
+ - More information: https://vatapp.net/privacy-policy

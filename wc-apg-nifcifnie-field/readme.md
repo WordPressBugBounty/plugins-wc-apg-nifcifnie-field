@@ -9,11 +9,11 @@ Requires at least: 5.0
 
 Tested up to: 6.9
 
-Stable tag: 4.5
+Stable tag: 4.5.0.1
 
 WC requires at least: 5.6
 
-WC tested up to: 10.1.1
+WC tested up to: 10.1.2
 
 License: GNU General Public License v2 or later
 
@@ -138,6 +138,9 @@ Si necesitas ayuda para configurar o instalar **WC - APG NIF/CIF/NIE Field**, **
 *En ningún caso **Art Project Group** proporciona ningún tipo de soporte técnico gratuito.*
 
 ## Changelog
+### 4.5.0.1
+* Arreglos menores.
+
 ### 4.5
 * Añadidos los phpDocs en el código.
 * Corregida la compatibilidad con Checkout Field Editor (Checkout Manager) for WooCommerce.

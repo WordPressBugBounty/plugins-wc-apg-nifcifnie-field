@@ -27,9 +27,15 @@ defined( 'ABSPATH' ) || exit;
 function apg_nif_valida_ar( string $vat ): bool {
     // Limpia guiones, espacios y puntos.
     $vat    = preg_replace( '/[^\d]/', '', $vat );
+    $len    = strlen($vat);
 
-    // Debe tener exactamente 11 dígitos.
-    if ( strlen( $vat ) !== 11 || !ctype_digit( $vat ) ) {
+    // 1) DNI: 7 u 8 dígitos numéricos (sin checksum)
+    if ($len >= 7 && $len <= 8 && ctype_digit($vat)) {
+        return true;
+    }
+
+    // 2) CUIT: exactamente 11 dígitos con dígito verificador
+    if ($len !== 11 || !ctype_digit($vat)) {
         return false;
     }
 
@@ -57,10 +63,16 @@ function apg_nif_valida_ar( string $vat ): bool {
  * @return bool       true si el checksum coincide; false en caso contrario.
  */
 function apg_nif_valida_at( string $vat ): bool {
-    $vat = preg_replace( '/[^0-9A-Z]/', '', strtoupper( $vat ) );
-    $vat = str_replace( 'ATU', '', $vat );
+    $vat = strtoupper( preg_replace( '/[^0-9A-Z]/', '', $vat ) );
 
-    if ( strlen( $vat ) !== 8 || !is_numeric($vat[0]) ) { // Corrected format check.
+    // Permitir variantes comunes de entrada: ATUxxxxxxxx, ATxxxxxxxx, Uxxxxxxxx o solo 8 dígitos
+    // 1) Elimina prefijo ATU o AT al principio si existe
+    $vat = preg_replace( '/^ATU?/', '', $vat );
+    // 2) Si aún queda una U inicial (p. ej. "U12345678"), elimínala
+    $vat = preg_replace( '/^U/', '', $vat );
+
+    // Deben quedar EXACTAMENTE 8 dígitos
+    if ( strlen( $vat ) !== 8 || !ctype_digit( $vat ) ) {
         return false;
     }
 
@@ -73,15 +85,12 @@ function apg_nif_valida_at( string $vat ): bool {
     for ( $i = 0; $i < 7; $i++ ) {
         $product = ( int )$vat_number[ $i ] * $multipliers[ $i ];
         if ( $product > 9 ) {
-            $product = floor( $product / 10 ) + ( $product % 10 );
+            $product = intdiv( $product, 10 ) + ( $product % 10 );
         }
         $sum += $product;
     }
 
-    $check = 10 - ( $sum + 4 ) % 10;
-    if ( $check === 10 ) {
-        $check = 0;
-    }
+    $check = ( 10 - ( ( $sum + 4 ) % 10 ) ) % 10;
 
     return $check === $check_digit;
 }
@@ -106,7 +115,7 @@ function apg_nif_valida_be( string $vat ): bool {
 
     $num    = (int)substr( $vat, 0, 8 );
     $check  = (int)substr( $vat, 8, 2 );
-    return (97 - ($num % 97)) === $check && ($num % 97) !== 0;
+    return (97 - ($num % 97)) === $check;
 }
 
 /**
@@ -166,6 +175,33 @@ function apg_nif_valida_bg( string $vat ): bool {
 }
 
 /**
+ * Valida un UID suizo (CHE123456789) con algoritmo mod 11.
+ *
+ * @param string $vat VAT suizo.
+ * @return bool       true si el dígito de control es correcto; false si no.
+ */
+function apg_nif_valida_ch( string $vat ): bool {
+    $vat = preg_replace( '/[^0-9]/', '', $vat );
+    if ( strlen( $vat ) !== 9 ) {
+        return false;
+    }
+
+    $mult   = [ 5, 4, 3, 2, 7, 6, 5, 4 ];
+    $suma   = 0;
+    for ( $i = 0; $i < 8; $i++ ) {
+        $suma += (int) $vat[ $i ] * $mult[ $i ];
+    }
+
+    $resto = $suma % 11;
+    $digito = ( 11 - $resto ) % 11;
+    if ( $digito === 10 ) {
+        return false; // Dígito 10 no permitido.
+    }
+
+    return (int) $vat[8] === $digito;
+}
+
+/**
  * Valida un RUT chileno (NNNNNNNN-DV).
  *
  * Limpia separadores, separa dígito verificador y calcula DV con
@@ -212,6 +248,39 @@ function apg_nif_valida_cl( string $vat ): bool {
     }
 
     return $dvr === $dv;
+}
+
+/**
+ * Valida un VAT de Chipre (8 dígitos + letra, módulo 26).
+ *
+ * @param string $vat VAT chipriota.
+ * @return bool       true si válido; false si no.
+ */
+function apg_nif_valida_cy( string $vat ): bool {
+    $vat = strtoupper( preg_replace( '/[^0-9A-Z]/', '', $vat ) );
+    if ( strlen( $vat ) !== 9 ) {
+        return false;
+    }
+
+    $numero = substr( $vat, 0, 8 );
+    if ( ! ctype_digit( $numero ) || $numero[0] === '0' ) {
+        return false;
+    }
+
+    $mult = [1, 2, 1, 2, 1, 2, 1, 2];
+    $suma = 0;
+    for ( $i = 0; $i < 8; $i++ ) {
+        $producto = (int) $numero[ $i ] * $mult[ $i ];
+        if ( $producto > 9 ) {
+            $producto = intdiv( $producto, 10 ) + ( $producto % 10 );
+        }
+        $suma += $producto;
+    }
+
+    $check = $suma % 26;
+    $letra = chr( $check + 65 );
+
+    return $vat[8] === $letra;
 }
 
 /**
@@ -313,28 +382,27 @@ function apg_nif_valida_dk( string $vat ): bool {
  * @param string $vat VAT estonio.
  * @return bool       true si válido; false si no.
  */
-function apg_nif_valida_ee( string $vat ): bool {
-    $vat = preg_replace( '/[^0-9]/', '', $vat );
-    if ( strlen( $vat ) !== 9 ) {
+function apg_nif_valida_ee(string $vat): bool {
+    // Normaliza: quita separadores, mayúsculas y prefijo EE
+    $vat = strtoupper($vat);
+    $vat = preg_replace('/[^A-Z0-9]/', '', $vat ?? '');
+    $vat = preg_replace('/^EE/', '', $vat);
+
+    // Deben quedar exactamente 9 dígitos
+    if (!preg_match('/^\d{9}$/', $vat)) {
         return false;
     }
 
+    $digits  = array_map('intval', str_split($vat));
+    $weights = [3, 7, 1, 3, 7, 1, 3, 7];
+
     $sum = 0;
-    for ( $i = 0; $i < 8; $i++ ) {
-        $sum += intval( $vat[$i] ) * ( $i + 1 );
+    for ($i = 0; $i < 8; $i++) {
+        $sum += $digits[$i] * $weights[$i];
     }
 
-    $check = $sum % 11;
-    if ( $check === 10 ) {
-        $sum = 0;
-        for ( $i = 0; $i < 8; $i++ ) {
-            $sum += intval( $vat[$i] ) * ( $i + 3 );
-        }
-        $check = $sum % 11;
-        if ( $check === 10 ) $check = 0;
-    }
-
-    return intval( $vat[8] ) === $check;
+    $check = (10 - ($sum % 10)) % 10;
+    return $check === $digits[8];
 }
 
 /**
@@ -367,12 +435,14 @@ function apg_nif_valida_es( string $vat ): bool {
         }
     }
 
-    $suma   = $numero[ 2 ] + $numero[ 4 ] + $numero[ 6 ];
+    $suma = intval($numero[2]) + intval($numero[4]) + intval($numero[6]);
     for ( $i = 1; $i < 8; $i += 2 ) {
-        if ( 2 * $numero[ $i ] >= 10 ) {
-            $suma   += substr( ( 2 * $numero[ $i ] ), 0, 1 ) + substr( ( 2 * $numero[ $i ] ), 1, 1 );
+        $dig = intval($numero[$i]);
+        if (2 * $dig >= 10) {
+            $doble = (string)(2 * $dig);
+            $suma += intval(substr($doble, 0, 1)) + intval(substr($doble, 1, 1));
         } else {
-            $suma   += 2 * $numero[ $i ];
+            $suma += 2 * $dig;
         }
     }
     $suma_numero    = 10 - substr( $suma, strlen( $suma ) - 1, 1 );
@@ -402,6 +472,54 @@ function apg_nif_valida_es( string $vat ): bool {
     }
 
     return $vat_valido;
+}
+
+/**
+ * Valida un VAT británico (número estándar o branch).
+ *
+ * @param string $vat VAT del Reino Unido.
+ * @return bool       true si el checksum coincide; false si no.
+ */
+function apg_nif_valida_gb( string $vat ): bool {
+    $vat = preg_replace( '/[^0-9A-Z]/', '', strtoupper( $vat ) );
+
+    // Formatos especiales GD/HA.
+    if ( preg_match( '/^(GD|HA)\d{3}$/', $vat ) ) {
+        return true;
+    }
+
+    // Números de 9 o 12 dígitos.
+    if ( ! preg_match( '/^\d{9}(\d{3})?$/', $vat ) ) {
+        return false;
+    }
+
+    $base = substr( $vat, 0, 9 );
+    $weights = [8, 7, 6, 5, 4, 3, 2, 10];
+    $sum = 0;
+    for ( $i = 0; $i < 8; $i++ ) {
+        $sum += (int) $base[ $i ] * $weights[ $i ];
+    }
+
+    $check = 97 - ( $sum % 97 );
+    if ( $check === 97 ) {
+        $check = 0;
+    }
+
+    if ( $check !== (int) substr( $base, 7, 2 ) ) {
+        return false;
+    }
+
+    // Para números > 100000000 se aplica ajuste adicional.
+    if ( (int) $base >= 100000000 ) {
+        $sum += 55;
+        $check = 97 - ( $sum % 97 );
+        if ( $check === 97 ) {
+            $check = 0;
+        }
+        return $check === (int) substr( $base, 7, 2 );
+    }
+
+    return true;
 }
 
 /**
@@ -517,18 +635,36 @@ function apg_nif_valida_hr( string $vat ): bool {
  * @return bool       true si válido; false si no.
  */
 function apg_nif_valida_hu( string $vat ): bool {
-    $vat = preg_replace( '/[^0-9]/', '', $vat );
-    if ( strlen( $vat ) !== 8 ) return false;
+    $vat = preg_replace('/[^0-9]/', '', $vat);
+    $len = strlen($vat);
 
-    $weights = [9, 7, 3, 1, 9, 7, 3];
-    $sum = 0;
-    for ( $i = 0; $i < 7; $i++ ) {
-        $sum += (int) $vat[ $i ] * $weights[ $i ];
+    // VIES: 8 dígitos (7 base + dígito de control)
+    if ($len === 8) {
+        $weights = [9, 7, 3, 1, 9, 7, 3];
+        $sum = 0;
+        for ($i = 0; $i < 7; $i++) {
+            $sum += intval($vat[$i]) * $weights[$i];
+        }
+        $check = (10 - ($sum % 10)) % 10;
+        return intval($vat[7]) === $check;
     }
 
-    $check = $sum % 10;
+    // Adószám completo: 11 dígitos (8 base + check + 2 sufijos territorio/tipo)
+    if ($len === 11) {
+        $weights = [9, 7, 3, 1, 9, 7, 3, 1];
+        $sum = 0;
+        for ($i = 0; $i < 8; $i++) {
+            $sum += intval($vat[$i]) * $weights[$i];
+        }
+        $check = $sum % 10;
+        if (intval($vat[8]) !== $check) {
+            return false;
+        }
+        // No comprobamos los 2 últimos (códigos internos), estructura ya es válida
+        return true;
+    }
 
-    return (int) $vat[7] === $check;
+    return false; // 9 dígitos (u otros) no válidos
 }
 
 /**
@@ -620,6 +756,11 @@ function apg_nif_valida_lt( string $vat ): bool {
         }
 
         return intval( $vat[8] ) === $check;
+    }
+
+    if ( strlen( $vat ) === 12 ) {
+        // Acepta 12 dígitos (personas jurídicas modernas). Chequeo estructural mínimo.
+        return ctype_digit($vat);
     }
 
     return false;
@@ -833,6 +974,32 @@ function apg_nif_valida_ro( string $vat ): bool {
 }
 
 /**
+ * Valida un PIB serbio (9 dígitos, módulo 11).
+ *
+ * @param string $vat VAT serbio.
+ * @return bool       true si válido; false si no.
+ */
+function apg_nif_valida_rs( string $vat ): bool {
+    $vat = preg_replace( '/[^0-9]/', '', $vat );
+    if ( strlen( $vat ) !== 9 ) {
+        return false;
+    }
+
+    $sum = 0;
+    for ( $i = 0; $i < 8; $i++ ) {
+        // Pesos 10..3
+        $sum += ( 10 - $i ) * (int) $vat[ $i ];
+    }
+
+    $check = 11 - ( $sum % 11 );
+    if ( $check > 9 ) {
+        $check = 0;
+    }
+
+    return (int) $vat[8] === $check;
+}
+
+/**
  * Valida VAT sueco (12 dígitos, debe terminar en '01'; Luhn sobre los 10 primeros).
  *
  * @param string $vat VAT sueco.
@@ -917,30 +1084,34 @@ function apg_nif_valida_sk( string $vat ): bool {
  */
 function apg_nif_valida_regex( string $pais, string $vat_number ): bool {
     switch ( $pais ) {
-        case 'AL': // Albania. 
-            return ( bool ) preg_match( '/^(AL)?J(\d{8}[A-Z])$/', $vat_number );
+        case 'AL': // Albania.
+            return ( bool ) preg_match( '/^(AL)?([A-Z]\d{8}[A-Z])$/', $vat_number );
+        case 'AD': // Andorra.
+            return ( bool ) preg_match( '/^(AD)?([A-Z]\d{6}[A-Z])$/', $vat_number );
         case 'AT': // Austria. 
             return ( bool ) preg_match( '/^(AT)?U(\d{8})$/', $vat_number );
         case 'AX': // Islas de Åland.
-            return ( bool ) preg_match( '/^(FI)?|(AX)?(\d{8})$/', $vat_number );
+            return ( bool ) preg_match( '/^((FI|AX)?\d{8})$/', $vat_number );
         case 'BE': // Bélgica. 
-            return ( bool ) preg_match( '/(BE)?(0?\d{9})$/', $vat_number );
-        case 'BG': // Bulgaria. 
-            return ( bool ) preg_match( '/(BG)?(\d{9,10})$/', $vat_number );
+            return ( bool ) preg_match( '/^(BE)?(0?\d{9})$/', $vat_number );
+        case 'BG': // Bulgaria.
+            return ( bool ) preg_match( '/^(BG)?(\d{9,10})$/', $vat_number );
+        case 'BR': // Brasil.
+            return ( bool ) preg_match( '/^(BR)?(\d{11}|\d{14})$/', $vat_number );
         case 'BY': // Bielorusia. 
-            return ( bool ) preg_match( '/(BY)?(\d{9})$/', $vat_number );
+            return ( bool ) preg_match( '/^(BY)?(\d{9})$/', $vat_number );
         case 'CH': // Suiza. 
-            return ( bool ) preg_match( '/(CHE)?(\d{9})(MWST)?|(TVA)?|(IVA)?$/', $vat_number );
+            return ( bool ) preg_match( '/^(?:CHE)?\d{9}(?:MWST|TVA|IVA)?$/', $vat_number );
         case 'CY': // Chipre. 
             return ( bool ) preg_match( '/^(CY)?([0-5|9]\d{7}[A-Z])$/', $vat_number );
         case 'CZ': // República Checa.
             return ( bool ) preg_match( '/^(CZ)?(\d{8,10})(\d{3})?$/', $vat_number );
         case 'DE': // Alemania. 
-            return ( bool ) preg_match( '/^(DE)?([1-9]\d{8,9})/', $vat_number );
+            return ( bool ) preg_match( '/^(DE)?([1-9]\d{8})$/', $vat_number );
         case 'DK': // Dinamarca. 
             return ( bool ) preg_match( '/^(DK)?(\d{8})$/', $vat_number );
-        case 'EE': // Estonia. 
-            return ( bool ) preg_match( '/^(EE)?(10\d{7,9})$/', $vat_number );
+        case 'EE': // Estonia.
+            return ( bool ) preg_match( '/^(EE)?(\d{9})$/', $vat_number );
         case 'ES': // España. 
             return ( bool ) preg_match( '/^(ES)?([A-Z]\d{8})$/', $vat_number ) ||
                 preg_match( '/^(ES)?([A-H|N-S|W]\d{7}[A-J])$/', $vat_number ) ||
@@ -954,9 +1125,8 @@ function apg_nif_valida_regex( string $pais, string $vat_number ): bool {
             return ( bool ) preg_match( '/^(FO)?(\d{6})$/', $vat_number );
         case 'FR': // Francia. 
             return ( bool ) preg_match( '/^(FR)?(\d{11})$/', $vat_number ) ||
-                preg_match( '/^(FR)?([(A-H)|(J-N)|(P-Z)]\d{10})$/', $vat_number ) ||
-                preg_match( '/^(FR)?(\d[(A-H)|(J-N)|(P-Z)]\d{9})$/', $vat_number ) ||
-                preg_match( '/^(FR)?([(A-H)|(J-N)|(P-Z)]{2}\d{9})$/', $vat_number );
+                preg_match( '/^(FR)?([A-HJ-NP-Z]\d{9})$/', $vat_number ) ||
+                preg_match( '/^(FR)?([A-HJ-NP-Z]{2}\d{9})$/', $vat_number );
         case 'GB': // Gran Bretaña. 
             return ( bool ) preg_match( '/^(GB)?(\d{9})$/', $vat_number ) ||
                 preg_match( '/^(GB)?(\d{12})$/', $vat_number ) ||
@@ -971,7 +1141,7 @@ function apg_nif_valida_regex( string $pais, string $vat_number ): bool {
             return ( bool ) preg_match( '/^(HU)?(\d{8})$/', $vat_number );
         case 'IE': // Irlanda. 
             return ( bool ) preg_match( '/^(IE)?(\d{7}[A-W])$/', $vat_number ) ||
-                preg_match( '/^(IE)?([7-9][A-Z\*\+)]\d{5}[A-W])$/', $vat_number ) ||
+                preg_match( '/^(IE)?([7-9][A-Z\*\+]\d{5}[A-W])$/', $vat_number ) ||
                 preg_match( '/^(IE)?(\d{7}[A-W][AH])$/', $vat_number );
         case 'IS': // Islandia. 
             return ( bool ) preg_match( '/^(IS)?(\d{5,6})$/', $vat_number );
@@ -986,16 +1156,18 @@ function apg_nif_valida_regex( string $pais, string $vat_number ): bool {
         case 'LV': // Letonia. 
             return ( bool ) preg_match( '/^(LV)?(\d{11})$/', $vat_number );
         case 'MC': // Mónaco. 
-            return ( bool ) preg_match( '/^(FR)?(\d[(A-H)|(J-N)|(P-Z)]\d{9})$/', $vat_number ) ||
-                preg_match( '/^(FR)?([(A-H)|(J-N)|(P-Z)]{2}\d{9})$/', $vat_number );
+            return ( bool ) preg_match( '/^(FR)?(\d[A-HJ-NP-Z]\d{9})$/', $vat_number ) ||
+                preg_match( '/^(FR)?([A-HJ-NP-Z]{2}\d{9})$/', $vat_number );            
         case 'MD': // Moldavia. 
             return ( bool ) preg_match( '/^(MD)?(\d{8})$/', $vat_number );
         case 'ME': // Montenegro. 
             return ( bool ) preg_match( '/^(ME)?(\d{8})$/', $vat_number );
         case 'MK': // Macedonia del Norte. 
             return ( bool ) preg_match( '/^(MK)?(\d{13})$/', $vat_number );
-        case 'MT': // Malta. 
-            return ( bool ) preg_match( '/^(MT)?([1-9]\d{7,8})$/', $vat_number );
+        case 'MT': // Malta.
+            return ( bool ) preg_match( '/^(MT)?([1-9]\d{7})$/', $vat_number );
+        case 'MX': // México.
+            return ( bool ) preg_match( '/^(MX)?([A-Z&]{3,4}\d{6}[A-Z0-9]{3})$/', $vat_number );
         case 'NL': // Países Bajos. 
             return ( bool ) preg_match( '/^(NL)?(\d{9})B\d{2}$/', $vat_number );
         case 'NO': // Noruega. 
@@ -1005,7 +1177,7 @@ function apg_nif_valida_regex( string $pais, string $vat_number ): bool {
         case 'PT': // Portugal. 
             return ( bool ) preg_match( '/^(PT)?(\d{9})$/', $vat_number );
         case 'RO': // Rumanía. 
-            return ( bool ) preg_match( '/^(RO)?([1-9]\d{2,10})$/', $vat_number );
+            return ( bool ) preg_match( '/^(RO)?([1-9]\d{1,9})$/', $vat_number );
         case 'RS': // Serbia. 
             return ( bool ) preg_match( '/^(RS)?(\d{9})$/', $vat_number );
         case 'SE': // Suecia. 
@@ -1013,7 +1185,7 @@ function apg_nif_valida_regex( string $pais, string $vat_number ): bool {
         case 'SI': // Eslovenia. 
             return ( bool ) preg_match( '/^(SI)?([1-9]\d{7,8})$/', $vat_number );
         case 'SK': // República Eslovaca.
-            return ( bool ) preg_match( '/^(SK)?([1-9]\d[(2-4)|(6-9)]\d{7})$/', $vat_number );
+            return ( bool ) preg_match( '/^(SK)?([1-9]\d{9})$/', $vat_number );
         case 'SM': // San Marino.
             return ( bool ) preg_match( '/^(SM)?(\d{5})$/', $vat_number );
         case 'UA': // Ucrania.

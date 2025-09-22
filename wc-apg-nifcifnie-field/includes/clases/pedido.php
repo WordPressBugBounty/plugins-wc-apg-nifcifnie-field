@@ -104,6 +104,7 @@ class APG_Campo_NIF_en_Pedido {
 		// Listado de países que se pueden validar.
         $this->listado_paises   = [
             'AL', // Albania.
+            'AD', // Andorra.
             'AT', // Austria.
             'AR', // Argentina.
             'AX', // Islas de Åland.
@@ -262,7 +263,7 @@ class APG_Campo_NIF_en_Pedido {
 			// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only access to 'tab' query arg for UI/display logic; sanitized and not used to change state or process data.
 			$tab = isset( $_GET[ 'tab' ] ) ? sanitize_key( wp_unslash( $_GET[ 'tab' ] ) ) : '';
 
-			if ( $page !== 'checkout_form_designer' && $tab !== 'fields' ) {		
+			if ( $page !== 'checkout_form_designer' && $tab !== 'fields' ) {
             	return $campos;
 			}
         }
@@ -386,11 +387,11 @@ class APG_Campo_NIF_en_Pedido {
                 ]
             );
         }
-        
+
 		// Sanitiza el valor del campo adicional.
         add_action( 'woocommerce_sanitize_additional_field', function( $field_value, $field_key ) {
             if ( 'apg/nif' === $field_key ) {
-                $field_value    = sanitize_text_field( strtoupper( trim( $field_value ) ) );
+                $field_value    = strtoupper( preg_replace( '/[^A-Z0-9]/', '', (string) $field_value ) );
             }
 
             return $field_value;
@@ -413,7 +414,7 @@ class APG_Campo_NIF_en_Pedido {
             }
             
             return $locale;
-        }, PHP_INT_MAX );
+        } );
 	}
     
 	/**
@@ -532,7 +533,6 @@ class APG_Campo_NIF_en_Pedido {
 
 		// Validaciones específicas o regex genérica.
         switch ( $valida_pais ) {
-                /*
             case 'AR': // Argentina.
                 return apg_nif_valida_ar( $vat_number );
             case 'AT': // Austria.
@@ -541,8 +541,12 @@ class APG_Campo_NIF_en_Pedido {
                 return apg_nif_valida_be( $vat_number );
             case 'BG': // Bulgaria.
                 return apg_nif_valida_bg( $vat_number );
+            case 'CH': // Suiza.
+                return apg_nif_valida_ch( $vat_number );
             case 'CL': // Chile.
                 return apg_nif_valida_cl( $vat_number );
+            case 'CY': // Chipre.
+                return apg_nif_valida_cy( $vat_number );
             case 'CZ': // República Checa.
                 return apg_nif_valida_cz( $vat_number );
             case 'DE': // Alemania.
@@ -560,6 +564,8 @@ class APG_Campo_NIF_en_Pedido {
                 return apg_nif_valida_fi( $vat_number );
             case 'FR': // Francia.
                 return apg_nif_valida_fr( $vat_number );
+            case 'GB': // Gran Bretaña.
+                return apg_nif_valida_gb( $vat_number );
             case 'HR': // Croacia.
                 return apg_nif_valida_hr( $vat_number );
             case 'HU': // Hungría.
@@ -586,19 +592,14 @@ class APG_Campo_NIF_en_Pedido {
                 return apg_nif_valida_pt( $vat_number );
             case 'RO': // Rumanía.
                 return apg_nif_valida_ro( $vat_number );
+            case 'RS': // Serbia.
+                return apg_nif_valida_rs( $vat_number );
             case 'SE': // Suecia.
                 return apg_nif_valida_se( $vat_number );
             case 'SI': // Eslovenia.
                 return apg_nif_valida_si( $vat_number );
             case 'SK': // Eslovaquia.
                 return apg_nif_valida_sk( $vat_number );
-                */
-            case 'AR': // Argentina.
-                return apg_nif_valida_ar( $vat_number );
-            case 'CL': // Chile.
-                return apg_nif_valida_cl( $vat_number );
-            case 'ES': // España.
-                return apg_nif_valida_es( $vat_number );
             default:
                 return apg_nif_valida_regex( $valida_pais, $vat_number );
         }
@@ -1045,8 +1046,9 @@ class APG_Campo_NIF_en_Pedido {
 	 */
     public function apg_nif_es_valido_vies( string $nif_completo, string $pais_de_facturacion ) {
         // Procesa los campos.
-        $pais       = strtoupper( substr( $nif_completo, 0, 2 ) );
-        $nif        = preg_replace( '/^[A-Z]{2}/', '', strtoupper( $nif_completo ) );
+        $nif_completo = preg_replace( '/[^A-Z0-9]/', '', strtoupper( $nif_completo ) );
+        $pais         = substr( $nif_completo, 0, 2 );
+        $nif          = substr( $nif_completo, 2 );
 
 		// Hack para Grecia.
         $iso_vies   = [ 'EL' => 'GR' ];

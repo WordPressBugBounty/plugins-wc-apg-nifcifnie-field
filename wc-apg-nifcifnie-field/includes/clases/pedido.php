@@ -779,6 +779,7 @@ class APG_Campo_NIF_en_Pedido {
                 'vat_error'     => $this->mensaje_error,
                 'eori_error'    => $this->mensaje_eori,
                 'validacion'    => $tipo_validacion,
+                'requerido'     => ( isset( $apg_nif_settings['requerido'] ) && $apg_nif_settings['requerido'] === '1' ),
                 'nonce'         => wp_create_nonce( 'apg_nif_nonce' ),
             ] );
         }
@@ -802,6 +803,17 @@ class APG_Campo_NIF_en_Pedido {
 	 */
     public function apg_nif_valida_exencion( string $nif, string $pais_cliente, string $pais_envio = '' ): array {
         global $apg_nif_settings;
+
+        // Permite omitir toda la validación por país/condición externa.
+        if ( apply_filters( 'apg_nif_skip_validation', false, $nif, $pais_cliente, $pais_envio ) ) {
+            return [
+                'es_exento'   => false,
+                'valido_vies' => false,
+                'valido_eori' => false,
+                'usar_eori'   => false,
+                'vat_valido'  => true,
+            ];
+        }
 
         $pais_base      = WC()->countries->get_base_country();
         $prefijo_nif    = strtoupper( substr( $nif, 0, 2 ) );
@@ -827,7 +839,7 @@ class APG_Campo_NIF_en_Pedido {
         $vat_valido     = ( in_array( $pais_cliente, $this->listado_paises, true ) ) ? $this->apg_nif_validacion_internacional( $nif_normalizado, $pais_cliente, $prefijo_nif ) : true;
         if ( $usar_eori ) {
             $valido_eori    = $this->apg_nif_comprobacion_eori( $nif_normalizado, $pais_cliente );
-        } elseif ( $vies_activo ) {
+        } elseif ( $vies_activo && $pais_cliente !== $pais_base && $prefijo_nif !== $pais_base ) {
             $valido_vies    = $this->apg_nif_comprobacion_vies( $nif_normalizado, $pais_cliente );
         }
 
@@ -875,6 +887,7 @@ class APG_Campo_NIF_en_Pedido {
         // No hay datos.
         if ( empty( $nif ) || empty( $pais ) ) {
             WC()->customer->set_is_vat_exempt( false );
+            return;
         }
 
         // Valida y aplica la exención.
@@ -1089,6 +1102,7 @@ class APG_Campo_NIF_en_Pedido {
             $resultado  = isset( $respuesta->valid ) && $respuesta->valid === true;
             // Guarda en caché.
             set_transient( $cache_key, $resultado, 30 * DAY_IN_SECONDS );
+
             return $resultado;
         } catch ( SoapFault $e ) {
             // Comprueba el VIES por otra vía.
@@ -1105,7 +1119,8 @@ class APG_Campo_NIF_en_Pedido {
             }
             $resultado  = isset( $data->isValid ) && $data->isValid === true;
             // Guarda en caché.
-            set_transient( $cache_key, $resultado, 30 * DAY_IN_SECONDS );            
+            set_transient( $cache_key, $resultado, 30 * DAY_IN_SECONDS );
+
             return $resultado;
         }
         

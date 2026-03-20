@@ -291,7 +291,7 @@ class APG_Campo_NIF_en_Pedido {
             'priority'    => (int) $this->priority,
             'required'    => isset( $apg_nif_settings['requerido'] ) && '1' === $apg_nif_settings['requerido'],
         );
-        
+
         if ( apply_filters( 'apg_nif_add_fields', true ) ) { // Si no quieren añadirse: add_filter( 'apg_nif_add_fields', '__return_false' );
             // Añade el correo electrónico y el teléfono.
             $campos['email'] = array(
@@ -532,11 +532,19 @@ class APG_Campo_NIF_en_Pedido {
 			return $campos;
 		}
 
-        $campos['shipping_nif']['label']    = $this->nombre_nif;
-        $campos['shipping_nif']['required'] = isset( $apg_nif_settings['requerido_envio'] ) && '1' === $apg_nif_settings['requerido_envio'];
+		if ( isset( $campos['shipping_nif'] ) && is_array( $campos['shipping_nif'] ) ) {
+        	$campos['shipping_nif']['label']    = $this->nombre_nif;
+        	$campos['shipping_nif']['required'] = isset( $apg_nif_settings['requerido_envio'] ) && '1' === $apg_nif_settings['requerido_envio'];
+		}
         if ( apply_filters( 'apg_nif_add_fields', true ) ) { // Si no quieren añadirse: add_filter( 'apg_nif_add_fields', '__return_false' );
-            $campos['shipping_email'] = $facturacion['billing_email'];
-            $campos['shipping_phone'] = $facturacion['billing_phone'];
+			if ( isset( $campos['shipping_email'] ) && isset( $facturacion['billing_email'] ) ) {
+            	$campos['shipping_email']['priority'] = $facturacion['billing_email']['priority'];
+            	$campos['shipping_email']['label']    = $facturacion['billing_email']['label'];
+			}
+			if ( isset( $campos['shipping_phone'] ) && isset( $facturacion['billing_phone'] ) ) {
+            	$campos['shipping_phone']['priority'] = $facturacion['billing_phone']['priority'];
+            	$campos['shipping_phone']['label']    = $facturacion['billing_phone']['label'];
+			}
         }
         
         return $campos;

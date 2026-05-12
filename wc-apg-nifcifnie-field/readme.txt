@@ -4,7 +4,7 @@ Donate link: https://artprojectgroup.es/tienda/donacion
 Tags: nif, cif, nie, eori, vies
 Requires at least: 5.0
 Tested up to: 7.0
-Stable tag: 4.12.1
+Stable tag: 4.12.2
 WC requires at least: 5.6
 WC tested up to: 10.8.0
 License: GNU General Public License v3 or later
@@ -148,6 +148,10 @@ If you need help to configuring or installing **WC - APG NIF/CIF/NIE field**, **
 3. Screenshot of WC - APG NIF/CIF/NIE field. Billing and shipping forms. Classic Shortcode.
 
 == Changelog ==
+= 4.12.2 =
+* Fixed the root cause of the NIF field not saving when editing an existing order from the admin panel: the field definition was missing an explicit `id`, so WooCommerce was writing the admin-entered value to `_billing_nif` / `_shipping_nif` instead of `billing_nif` / `shipping_nif`. As a result, the display always showed the original checkout value unchanged.
+* Fixed the duplicate NIF metadata detection function so it checks both `postmeta` and `wc_orders_meta` (HPOS) regardless of the active storage mode. Previously the cleanup button could fail to appear on stores using HPOS sync mode or certain HPOS configurations.
+
 = 4.12.1 =
 * Fixed a regression introduced in 4.12.0 where editing the NIF field on an existing order from the admin panel and saving would silently discard the new value, leaving the old one in the database. This happened on stores with duplicate NIF metadata rows created by older versions of the plugin. The automatic deduplication hook has been removed; use the cleanup button in the plugin settings or the WP-CLI script instead.
 
@@ -435,8 +439,8 @@ If you need help to configuring or installing **WC - APG NIF/CIF/NIE field**, **
 * Initial version.
 
 == Upgrade Notice ==
-= 4.12.1 =
-* Fixes a regression in 4.12.0 where saving the NIF field on an existing order from the admin panel had no effect on stores with duplicate NIF metadata rows. Update immediately if you are on 4.12.0. Run the cleanup button in the plugin settings afterwards.
+= 4.12.2 =
+* Fixes the NIF field not saving when editing an existing order from the admin panel on stores using HPOS with Checkout Blocks. Update immediately if you are on 4.12.0 or 4.12.1.
 
 == Translations ==
 * *English*: by [**Art Project Group**](https://artprojectgroup.es/) (default language).

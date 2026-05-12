@@ -81,14 +81,14 @@ class APG_Campo_NIF_en_Admin_Pedidos {
 		global $apg_nif_settings;
 
 		$etiqueta     = isset( $apg_nif_settings['etiqueta'] ) && $apg_nif_settings['etiqueta'] ? sanitize_text_field( $apg_nif_settings['etiqueta'] ) : esc_attr__( 'NIF/CIF/NIE', 'wc-apg-nifcifnie-field' );
+		$es_envio     = ( 'woocommerce_admin_shipping_fields' === current_filter() );
 		$campos['nif'] = array(
+			'id'    => $es_envio ? 'shipping_nif' : 'billing_nif',
 			'label' => $etiqueta,
 			'show'  => false,
 		);
 
 		if ( $order instanceof WC_Order ) {
-			// Detecta si estamos en el hook de envío o de facturación usando el nombre del filtro.
-			$es_envio = ( 'woocommerce_admin_shipping_fields' === current_filter() );
 
 			// Checkout Blocks guarda el NIF sin guion bajo; mantenemos fallback para pedidos antiguos.
 			$valor_nif = $order->get_meta( $es_envio ? 'shipping_nif' : 'billing_nif', true );
@@ -353,7 +353,8 @@ new APG_Campo_NIF_en_Admin_Pedidos();
 /**
  * Comprueba si existe algún pedido con filas duplicadas de billing_nif o shipping_nif.
  *
- * Soporta tanto HPOS (wc_orders_meta) como almacenamiento clásico (postmeta).
+ * Consulta postmeta y, si está disponible, wc_orders_meta (HPOS), de modo que
+ * funciona en cualquier configuración de almacenamiento de pedidos.
  *
  * @global \wpdb $wpdb
  * @return bool true si hay al menos un pedido con duplicados.
@@ -361,23 +362,19 @@ new APG_Campo_NIF_en_Admin_Pedidos();
 function apg_nif_hay_meta_duplicados() {
 	global $wpdb;
 
-	$hpos = class_exists( '\Automattic\WooCommerce\Utilities\OrderUtil' )
-		&& \Automattic\WooCommerce\Utilities\OrderUtil::custom_orders_table_usage_is_enabled();
-
 	// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-	if ( $hpos ) {
-		// WooCommerce registra $wpdb->wc_orders_meta igual que WP registra $wpdb->postmeta.
+	$resultado = $wpdb->get_var(
+		$wpdb->prepare(
+			"SELECT 1 FROM {$wpdb->postmeta} WHERE meta_key IN (%s, %s) GROUP BY post_id, meta_key HAVING COUNT(*) > 1 LIMIT 1",
+			'billing_nif',
+			'shipping_nif'
+		)
+	);
+
+	if ( is_null( $resultado ) && ! empty( $wpdb->wc_orders_meta ) ) {
 		$resultado = $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT 1 FROM {$wpdb->wc_orders_meta} WHERE meta_key IN (%s, %s) GROUP BY order_id, meta_key HAVING COUNT(*) > 1 LIMIT 1",
-				'billing_nif',
-				'shipping_nif'
-			)
-		);
-	} else {
-		$resultado = $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT 1 FROM {$wpdb->postmeta} WHERE meta_key IN (%s, %s) GROUP BY post_id, meta_key HAVING COUNT(*) > 1 LIMIT 1",
 				'billing_nif',
 				'shipping_nif'
 			)

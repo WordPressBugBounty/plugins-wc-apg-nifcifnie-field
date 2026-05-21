@@ -1,10 +1,15 @@
 <?php
 /**
- * Script de limpieza de metadatos duplicados de NIF.
+ * Script de limpieza/normalización de metadatos de NIF.
  *
- * Elimina filas duplicadas de billing_nif/shipping_nif en wc_orders_meta
- * que pudieron crearse con versiones anteriores del plugin cuando el checkout
- * estaba basado en bloques.
+ * Por cada pedido (en postmeta y en HPOS):
+ * - Migra la clave heredada `_billing_nif` / `_shipping_nif` a la canónica
+ *   `billing_nif` / `shipping_nif` cuando esta no existe.
+ * - Elimina la clave heredada cuando ya existe la canónica.
+ * - Elimina filas canónicas duplicadas, conservando una.
+ *
+ * Toda la lógica vive en apg_nif_normaliza_meta_duplicados() (incluida con el
+ * plugin) para que este script y el botón del panel hagan exactamente lo mismo.
  *
  * USO CON WP-CLI (recomendado):
  *   wp eval-file wp-content/plugins/wc-apg-nifcifnie-field/includes/admin/limpieza-meta-duplicados.php
@@ -30,69 +35,17 @@ if ( ! class_exists( 'WooCommerce' ) ) {
 	exit;
 }
 
-$claves        = array( 'billing_nif', 'shipping_nif' );
-$lote          = 50;
-$pagina        = 1;
-$total_pedidos = 0;
-$total_limpios = 0;
+if ( ! function_exists( 'apg_nif_normaliza_meta_duplicados' ) ) {
+	echo "El plugin WC - APG NIF/CIF/NIE Field no está activo.\n";
+	exit;
+}
 
-echo "Iniciando limpieza de metadatos duplicados de NIF...\n\n";
+echo "Iniciando normalización de metadatos de NIF...\n\n";
 
-do {
-	$pedidos = wc_get_orders( array(
-		'limit'  => $lote,
-		'page'   => $pagina,
-		'return' => 'ids',
-		'status' => 'any',
-	) );
-
-	foreach ( $pedidos as $id ) {
-		$order   = wc_get_order( $id );
-		$limpiado = false;
-
-		if ( ! $order instanceof WC_Order ) {
-			continue;
-		}
-
-		foreach ( $claves as $key ) {
-			$metas = array_values(
-				array_filter(
-					$order->get_meta_data(),
-					function ( $m ) use ( $key ) {
-						return $m->key === $key;
-					}
-				)
-			);
-
-			if ( count( $metas ) > 1 ) {
-				$valor = $metas[0]->value;
-				$order->delete_meta_data( $key );
-				$order->add_meta_data( $key, $valor );
-				$limpiado = true;
-
-				echo sprintf(
-					"  Pedido #%d: eliminados %d duplicados de '%s' (valor conservado: '%s')\n",
-					absint( $id ),
-					absint( count( $metas ) - 1 ),
-					esc_html( $key ),
-					esc_html( $valor )
-				);
-			}
-		}
-
-		if ( $limpiado ) {
-			$order->save();
-			$total_limpios++;
-		}
-
-		$total_pedidos++;
-	}
-
-	$pagina++;
-} while ( count( $pedidos ) === $lote );
+$resultado = apg_nif_normaliza_meta_duplicados();
 
 echo sprintf(
-	"\nFinalizado. Pedidos revisados: %d. Pedidos con duplicados eliminados: %d.\n",
-	absint( $total_pedidos ),
-	absint( $total_limpios )
+	"\nFinalizado. Pedidos afectados: %d. Filas de metadatos normalizadas: %d.\n",
+	absint( $resultado['pedidos'] ),
+	absint( $resultado['filas'] )
 );
